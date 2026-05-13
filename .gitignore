@@ -59,3 +59,7 @@ secrets/
 *.crt
 *.p12
 *.pfx
+
+#node_modules and build artifacts for frontend
+frontend/node_modules/
+frontend/.next/
