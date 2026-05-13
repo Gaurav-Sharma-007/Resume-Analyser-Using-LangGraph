@@ -1,4 +1,6 @@
-import llm
+from app.llm import llm
+
+
 def interview_questions_node(state):
 
     prompt = f"""

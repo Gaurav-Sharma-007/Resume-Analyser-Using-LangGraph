@@ -1,5 +1,5 @@
 
-import llm
+from app.llm import llm
 
 
 def job_match_node(state):

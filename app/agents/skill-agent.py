@@ -1,5 +1,5 @@
 
-import llm
+from app.llm import llm
 
 
 def skill_analysis_node(state):
