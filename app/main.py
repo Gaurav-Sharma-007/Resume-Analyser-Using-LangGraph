@@ -1,5 +1,6 @@
 import json
 import re
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -7,6 +8,9 @@ from typing import Any
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+if __package__ in {None, ""}:
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app.models.llm import llm
 from app.services.pdf_service import extract_text_from_pdf
@@ -303,3 +307,9 @@ async def analyze_resume_file(
         raise HTTPException(status_code=400, detail="Could not extract text from the uploaded PDF.")
 
     return run_resume_analysis(raw_text, job_description)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)
