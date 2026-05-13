@@ -4,7 +4,7 @@ from pathlib import Path
 from langchain_openai import AzureChatOpenAI
 
 
-CONFIG_FILE = Path(__file__).resolve().parent.parent / "config.ini"
+CONFIG_FILE = Path(__file__).resolve().parents[2] / "config.ini"
 
 
 def load_azure_config(path: str | Path = CONFIG_FILE) -> dict[str, str]:
