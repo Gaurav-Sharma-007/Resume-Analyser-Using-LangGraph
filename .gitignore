@@ -1,0 +1,61 @@
+.venv/
+config.ini
+.venv/lib/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.staging
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+temp/
+tmp/
+
+# Cache
+.cache/
+.pytest_cache/
+.mypy_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Sensitive files
+secrets/
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
