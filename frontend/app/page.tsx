@@ -9,11 +9,13 @@ import {
   ClipboardList,
   FileText,
   Loader2,
+  Moon,
   MessageSquareText,
   Sparkles,
+  Sun,
   UploadCloud,
 } from "lucide-react";
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 
 type AtsFeedback = {
   weaknesses?: string[];
@@ -36,6 +38,8 @@ type AnalysisResponse = {
   job_matches: string[];
   interview_questions: string[];
 };
+
+type ThemeMode = "light" | "dark";
 
 const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
 const apiUrl =
@@ -73,6 +77,18 @@ export default function Home() {
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [theme, setTheme] = useState<ThemeMode>("light");
+
+  useEffect(() => {
+    const savedTheme = window.localStorage.getItem("resume-analyser-theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    setTheme(savedTheme === "dark" || (!savedTheme && prefersDark) ? "dark" : "light");
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem("resume-analyser-theme", theme);
+  }, [theme]);
 
   const scoreTone = useMemo(() => {
     const score = analysis?.ats_score ?? 0;
@@ -94,6 +110,10 @@ export default function Home() {
     setResumeText(sampleResume);
     setJobDescription(sampleJob);
     setError("");
+  }
+
+  function toggleTheme() {
+    setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"));
   }
 
   async function submitAnalysis(event: FormEvent<HTMLFormElement>) {
@@ -136,9 +156,19 @@ export default function Home() {
             <h1>Resume intelligence desk</h1>
           </div>
         </div>
-        <div className="status-pill">
-          <span />
-          FastAPI backend
+        <div className="topbar-actions">
+          <button
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            className="theme-toggle"
+            onClick={toggleTheme}
+            type="button"
+          >
+            {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+          </button>
+          <div className="status-pill">
+            <span />
+            FastAPI backend
+          </div>
         </div>
       </header>
 
@@ -193,22 +223,63 @@ export default function Home() {
         </form>
 
         <aside className="profile-visual" aria-label="Resume preview">
-          <div className="resume-sheet">
+          <div className={`resume-sheet ${analysis ? "analysed" : ""}`}>
             <div className="sheet-head">
               <div>
-                <span className="line wide" />
-                <span className="line short" />
+                {analysis ? (
+                  <>
+                    <p className="preview-label">Analysed profile</p>
+                    <h3>{analysis.parsed_resume.name || "Candidate profile"}</h3>
+                    <small>
+                      {[analysis.parsed_resume.email, analysis.parsed_resume.location]
+                        .filter(Boolean)
+                        .join(" • ") || "Resume intelligence snapshot"}
+                    </small>
+                  </>
+                ) : (
+                  <>
+                    <span className="line wide" />
+                    <span className="line short" />
+                  </>
+                )}
               </div>
               <FileText size={28} />
             </div>
-            <div className="sheet-grid">
-              <span />
-              <span />
-              <span />
-              <span />
-              <span />
-              <span />
-            </div>
+            {analysis ? (
+              <div className="profile-snapshot">
+                <div className="ats-mini-card">
+                  <span>ATS score</span>
+                  <strong>{analysis.ats_score}</strong>
+                  <small>{scoreLabel(analysis.ats_score)}</small>
+                </div>
+                <div className="snapshot-summary">
+                  <span>Summary</span>
+                  <p>
+                    {analysis.parsed_resume.summary ||
+                      "The resume was parsed successfully. Review extracted skills and role fit below."}
+                  </p>
+                </div>
+                <div className="snapshot-skills">
+                  <span>Top skills</span>
+                  <div>
+                    {(analysis.skills.length ? analysis.skills.slice(0, 5) : ["No skills found"]).map(
+                      (skill) => (
+                        <em key={skill}>{skill}</em>
+                      ),
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="sheet-grid">
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+              </div>
+            )}
             <div className="metric-strip">
               <div>
                 <strong>{analysis?.skills.length ?? 0}</strong>
@@ -227,7 +298,7 @@ export default function Home() {
         </aside>
       </section>
 
-      <section className="results-band">
+      <section className={`results-band ${analysis ? "has-analysis" : ""}`}>
         <ScorePanel analysis={analysis} scoreTone={scoreTone} isLoading={isLoading} />
         <IdentityPanel analysis={analysis} />
         <ListPanel
