@@ -37,7 +37,9 @@ type AnalysisResponse = {
   interview_questions: string[];
 };
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
+const apiUrl =
+  configuredApiUrl || (process.env.NODE_ENV === "development" ? "http://127.0.0.1:8000" : "");
 
 const sampleResume = `Aarav Mehta
 Software Engineer
@@ -257,7 +259,7 @@ export default function Home() {
 }
 
 async function analyzeText(rawText: string, jobDescription: string) {
-  const response = await fetch(`${apiUrl}/analyze`, {
+  const response = await fetch(buildApiUrl("/analyze"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -278,12 +280,26 @@ async function analyzeFile(file: File, jobDescription: string) {
     formData.append("job_description", jobDescription.trim());
   }
 
-  const response = await fetch(`${apiUrl}/analyze-file`, {
+  const response = await fetch(buildApiUrl("/analyze-file"), {
     method: "POST",
     body: formData,
   });
 
   return parseApiResponse(response);
+}
+
+function buildApiUrl(path: string) {
+  if (!apiUrl) {
+    throw new Error(
+      "Backend API URL is missing. Set NEXT_PUBLIC_API_URL in the frontend Vercel project and redeploy.",
+    );
+  }
+
+  if (!apiUrl.startsWith("https://") && process.env.NODE_ENV === "production") {
+    throw new Error("Backend API URL must start with https:// in production.");
+  }
+
+  return `${apiUrl}${path}`;
 }
 
 async function parseApiResponse(response: Response): Promise<AnalysisResponse> {
