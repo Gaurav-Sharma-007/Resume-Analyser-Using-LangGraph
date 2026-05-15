@@ -34,8 +34,8 @@ An AI-powered resume analysis platform that parses resumes, extracts skills, sco
 
 **Deployment Target**
 
-- Azure Static Web Apps for the frontend
-- Azure App Service for the FastAPI backend
+- Vercel for the Next.js frontend
+- Vercel Serverless Functions for the FastAPI backend
 - Azure OpenAI for LLM inference
 
 ## Project Structure
@@ -56,7 +56,10 @@ An AI-powered resume analysis platform that parses resumes, extracts skills, sco
 │   │   ├── layout.tsx
 │   │   └── globals.css
 │   ├── package.json
-│   └── next.config.ts
+│   ├── next.config.ts
+│   └── vercel.json             # Vercel frontend framework config
+├── .env.example
+├── frontend/.env.example
 ├── requirements.txt
 └── ReadME.md
 ```
@@ -87,7 +90,7 @@ Request body:
 }
 ```
 
-### Analyze PDF Resume
+### Analyze Resume File
 
 ```http
 POST /analyze-file
@@ -219,181 +222,212 @@ To use a different backend URL, set:
 NEXT_PUBLIC_API_URL=https://your-backend-url
 ```
 
-## Environment Variables For Production
+## Environment Variables
 
-For Azure deployment, prefer environment variables instead of a local `config.ini` file:
+The backend can use a local `config.ini` file during development, but production should use environment variables.
+
+### Backend Environment Variables
 
 ```text
 AZURE_OPENAI_KEY
 AZURE_OPENAI_ENDPOINT
 AZURE_OPENAI_DEPLOYMENT
 AZURE_OPENAI_API_VERSION
+FRONTEND_ORIGINS
+```
+
+Example:
+
+```env
+AZURE_OPENAI_KEY=your-azure-openai-key
+AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT=your-deployment-name
+AZURE_OPENAI_API_VERSION=2024-06-01
+FRONTEND_ORIGINS=https://your-next-frontend.vercel.app
+```
+
+### Frontend Environment Variables
+
+```text
 NEXT_PUBLIC_API_URL
 ```
 
-`NEXT_PUBLIC_API_URL` is used by the frontend and should point to the deployed FastAPI backend.
+Example:
 
-## Azure Deployment
+```env
+NEXT_PUBLIC_API_URL=https://your-fastapi-backend.vercel.app
+```
 
-This project is best deployed with two Azure services:
+`NEXT_PUBLIC_API_URL` is baked into the frontend during build, so redeploy the frontend after changing it.
+
+## Vercel Deployment
+
+This project is deployed as two Vercel projects from the same repository:
 
 ```text
-Azure Static Web Apps  -> Next.js frontend
-Azure App Service      -> FastAPI backend
-Azure OpenAI           -> LLM inference
+Vercel Project 1 -> FastAPI backend
+Vercel Project 2 -> Next.js frontend
+Azure OpenAI     -> LLM inference
 ```
 
-### Deploy Backend To Azure App Service
+The frontend calls the backend through `NEXT_PUBLIC_API_URL`.
 
-Create a resource group:
+### Deploy The FastAPI Backend On Vercel
 
-```bash
-az group create \
-  --name resume-analyser-rg \
-  --location eastus
-```
+Create a Vercel project for the backend using the repository root.
 
-Create a Linux App Service plan:
-
-```bash
-az appservice plan create \
-  --name resume-analyser-plan \
-  --resource-group resume-analyser-rg \
-  --location eastus \
-  --sku B1 \
-  --is-linux
-```
-
-Create the FastAPI web app:
-
-```bash
-az webapp create \
-  --name resume-analyser-api \
-  --resource-group resume-analyser-rg \
-  --plan resume-analyser-plan \
-  --runtime "PYTHON:3.12"
-```
-
-Set application settings:
-
-```bash
-az webapp config appsettings set \
-  --resource-group resume-analyser-rg \
-  --name resume-analyser-api \
-  --settings \
-    AZURE_OPENAI_KEY="your-key" \
-    AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/" \
-    AZURE_OPENAI_DEPLOYMENT="your-deployment-name" \
-    AZURE_OPENAI_API_VERSION="your-api-version"
-```
-
-Set the startup command:
-
-```bash
-az webapp config set \
-  --resource-group resume-analyser-rg \
-  --name resume-analyser-api \
-  --startup-file "gunicorn -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 app.main:app"
-```
-
-Deploy from the repository root:
-
-```bash
-az webapp up \
-  --resource-group resume-analyser-rg \
-  --name resume-analyser-api \
-  --runtime "PYTHON:3.12"
-```
-
-Test the deployed backend:
+Backend project settings:
 
 ```text
-https://resume-analyser-api.azurewebsites.net/health
+Root Directory: .
+Framework Preset: Other
+Install Command: pip install -r requirements.txt
 ```
 
-### Deploy Frontend To Azure Static Web Apps
-
-Update `frontend/next.config.ts` for static export:
-
-```ts
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  output: "export",
-};
-
-export default nextConfig;
-```
-
-Build locally:
-
-```bash
-cd frontend
-npm run build
-```
-
-The static site is generated in:
+Add these environment variables to the backend Vercel project:
 
 ```text
-frontend/out
+AZURE_OPENAI_KEY=your-azure-openai-key
+AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT=your-deployment-name
+AZURE_OPENAI_API_VERSION=2024-06-01
+FRONTEND_ORIGINS=https://your-next-frontend.vercel.app
 ```
 
-In Azure Static Web Apps, use these build settings:
+After deployment, verify the backend:
 
 ```text
-App location: frontend
-API location: leave empty
-Output location: out
-Build command: npm run build
+https://your-fastapi-backend.vercel.app/health
 ```
 
-Set this variable during the Static Web Apps build:
+Expected response:
+
+```json
+{
+  "status": "ok",
+  "service": "resume-analyser-api"
+}
+```
+
+### Deploy The Next.js Frontend On Vercel
+
+Create a second Vercel project for the frontend using the same repository.
+
+Frontend project settings:
 
 ```text
-NEXT_PUBLIC_API_URL=https://resume-analyser-api.azurewebsites.net
+Root Directory: frontend
+Framework Preset: Next.js
+Install Command: npm install
+Build Command: npm run build
+Output Directory: leave empty
+```
+
+The frontend contains `frontend/vercel.json` to force Vercel to treat the app as Next.js:
+
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs"
+}
+```
+
+Add this environment variable to the frontend Vercel project:
+
+```text
+NEXT_PUBLIC_API_URL=https://your-fastapi-backend.vercel.app
+```
+
+Do not include a trailing slash in `NEXT_PUBLIC_API_URL`.
+
+After adding or changing `NEXT_PUBLIC_API_URL`, redeploy the frontend because Next.js embeds public environment variables during build.
+
+### Production Request Flow
+
+```text
+User opens Next.js frontend
+        ↓
+Frontend sends request to NEXT_PUBLIC_API_URL/analyze
+        ↓
+FastAPI backend parses and analyzes resume
+        ↓
+LangChain calls Azure OpenAI
+        ↓
+Backend returns ATS score, skills, job matches, and interview questions
+        ↓
+Frontend renders the analysis dashboard
 ```
 
 ## CORS
 
-During development, the backend allows all origins. For production, replace the wildcard CORS configuration in `app/main.py` with your Static Web App URL:
+The backend reads allowed frontend origins from `FRONTEND_ORIGINS`.
 
-```python
-allow_origins=[
-    "https://your-static-web-app.azurestaticapps.net",
-]
+For local testing or quick debugging:
+
+```env
+FRONTEND_ORIGINS=*
+```
+
+For production:
+
+```env
+FRONTEND_ORIGINS=https://your-next-frontend.vercel.app
+```
+
+Multiple origins can be comma-separated:
+
+```env
+FRONTEND_ORIGINS=https://your-next-frontend.vercel.app,http://localhost:3000
 ```
 
 ## Common Issues
 
-### App Service Plan Region Error
-
-If Azure shows:
-
-```text
-Plan with requested features is not supported in current region.
-```
-
-List supported Linux App Service regions:
-
-```bash
-az appservice list-locations \
-  --sku B1 \
-  --linux-workers-enabled true \
-  -o table
-```
-
-Then recreate the plan using one of the supported locations.
-
-### Frontend Cannot Reach Backend
+### Frontend Shows Network Error
 
 Check that:
 
-- The backend `/health` endpoint works
-- `NEXT_PUBLIC_API_URL` points to the deployed backend
-- CORS allows the Azure Static Web App domain
-- The backend app settings contain valid Azure OpenAI credentials
+- The backend `/health` endpoint works in the browser
+- The frontend Vercel project has `NEXT_PUBLIC_API_URL`
+- `NEXT_PUBLIC_API_URL` starts with `https://`
+- `NEXT_PUBLIC_API_URL` does not contain a trailing slash
+- The frontend was redeployed after setting `NEXT_PUBLIC_API_URL`
+- The backend Vercel project has `FRONTEND_ORIGINS` set correctly
 
-### PDF Upload Fails
+If browser DevTools shows requests going to this URL, the frontend environment variable is missing:
+
+```text
+http://127.0.0.1:8000
+```
+
+### Vercel Looks For A `public` Output Directory
+
+For the frontend project, use:
+
+```text
+Root Directory: frontend
+Framework Preset: Next.js
+Output Directory: leave empty
+```
+
+The frontend also includes `frontend/vercel.json` to explicitly set:
+
+```json
+{
+  "framework": "nextjs"
+}
+```
+
+### Backend Function Crashes
+
+Check the backend runtime logs in Vercel. Common causes:
+
+- Missing Azure OpenAI environment variables
+- Invalid Azure OpenAI deployment name
+- Invalid API version
+- Backend function timeout during long LLM calls
+- PDF upload larger than Vercel function limits
+
+### File Upload Fails
 
 Only PDF uploads are supported. The uploaded file must have a `.pdf` extension and a valid PDF content type.
 
