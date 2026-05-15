@@ -13,6 +13,7 @@ if __package__ in {None, ""}:
     sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app.models.llm import llm
+from app.services.embedding_service import extract_matching_keywords, score_text_similarity
 from app.services.pdf_service import extract_text_from_pdf
 
 
@@ -203,14 +204,27 @@ def score_ats(
 
     result = _extract_json(_invoke_llm(prompt))
     ats_score = _clamp_score(result.get("ats_score"))
+    resume_text = json.dumps(parsed_resume)
+    similarity_score = score_text_similarity(resume_text, job_description or "")
     if ats_score == 0:
         ats_score = _fallback_ats_score(parsed_resume, skills)
+        if job_description:
+            ats_score = _clamp_score(round((ats_score * 0.7) + (similarity_score * 0.3)))
 
     feedback = {
         "weaknesses": result.get("weaknesses", []),
         "formatting_issues": result.get("formatting_issues", []),
         "recommendations": result.get("recommendations", []),
     }
+    if job_description:
+        matching_keywords = extract_matching_keywords(resume_text, job_description)
+        if matching_keywords:
+            feedback["recommendations"].append(
+                "Strong keyword overlap found: " + ", ".join(matching_keywords)
+            )
+        feedback["recommendations"].append(
+            f"Resume-to-job lexical similarity score: {similarity_score}/100"
+        )
     return ats_score, feedback
 
 
