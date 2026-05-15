@@ -1,4 +1,4 @@
-# LangChain Resume Analyser
+# Resilient - The LangChain Resume Analyser
 
 An AI-powered resume analysis platform that parses resumes, extracts skills, scores ATS readiness, suggests matching job roles, and generates tailored interview questions. The project combines a FastAPI backend, Azure OpenAI through LangChain, PDF parsing, and a modern Next.js frontend.
 
